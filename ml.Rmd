@@ -1,5 +1,5 @@
 ---
-title: "Maching Learning - Prediction Assignment Writeup"
+title: "Machine Learning - Prediction Assignment Writeup"
 author: "Aly"
 date: "December 19, 2016"
 output: html_document
