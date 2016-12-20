@@ -1,0 +1,100 @@
+---
+title: "Maching Learning - Prediction Assignment Writeup"
+author: "Aly"
+date: "December 19, 2016"
+output: html_document
+---
+##The Synopsis
+1.The goal of this project is to predict the manner of performing unilateral dumbbell biceps curls based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The 5 possible methods include -
+
+A: exactly according to the specification
+B: throwing the elbows to the front
+C: lifting the dumbbell only halfway
+D: lowering the dumbbell only halfway
+E: throwing the hips to the front
+
+2. Given two datasets represents data training and data test.
+   a) pml-training.csv
+   b) pml-testing.csv
+3. For this task, pml-training.csv will be used for cross validation set.
+4. The process started with getting and cleaning unwanted variables in pml-training.csv.
+   Then the datasets is devided by two set : 70 % to train the model and 30 % to predict the out of sample error.
+5. For building and evaluating model, random forest is selected for data prediction.
+6. Finally,dataset pml-testing.csv will be used as prediction on real testing set.
+
+-------------------------------------------------------------------
+-------------------------------------------------------------------
+
+
+1. Load libraries and setup working directory
+```{r}
+library(caret)
+library(lattice)
+library(ggplot2)
+setwd("/home/al-maya/Desktop/cousera/Practical Machine Learning/")
+dataTraining <- read.csv('pml-training.csv')
+dataTest <- read.csv('pml-testing.csv')
+dataTraining$classe <- as.factor(dataTraining$classe) 
+```
+```{r}
+str(dataTraining)
+str(dataTest)
+```
+1.1 Cleaning variables
+```{r}
+NAindex <- apply(dataTraining,2,function(x) {sum(is.na(x))}) 
+dataTrainingX <- dataTraining[,which(NAindex == 0)]
+```
+1.2 Preprocessing Variables
+```{r}
+vb <- which(lapply(dataTrainingX, class) %in% "numeric")
+preObj <-preProcess(dataTrainingX[,vb],method=c('knnImpute', 'center', 'scale'))
+trainLess1 <- predict(preObj, dataTrainingX[,vb])
+trainLess1$classe <- dataTrainingX$classe
+
+```
+1.3 Removing Non Zero Variables
+```{r}
+nzv <- nearZeroVar(trainLess1,saveMetrics=TRUE)
+trainLess1 <- trainLess1[,nzv$nzv==FALSE]
+```
+2.0 Create Cross Validation set for training set 
+```{r}
+set.seed(123456)
+
+inTrain = createDataPartition(trainLess1$classe, p = 0.70, list=FALSE)
+training = trainLess1[inTrain,]
+crossValidation = trainLess1[-inTrain,]
+```
+2.2 Train model
+```{r}
+modFit <- train(classe ~., method="rf", data=training, trControl=trainControl(method='cv'), number=5, allowParallel=TRUE )
+```
+2.3 Accuracy between training set and cross validation set
+```{r}
+trainingPred <- predict(modFit, training)
+confusionMatrix(trainingPred, training$classe)
+```
+Cross Validation Set
+```{r}
+cvPred <- predict(modFit, crossValidation)
+confusionMatrix(cvPred, crossValidation$classe)
+```
+3.0 Results
+Predictions on real testing set
+```{r}
+testingPred <- predict(modFit, dataTest)
+testingPred
+```
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(testingPred)
+```
+
+
